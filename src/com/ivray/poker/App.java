@@ -11,6 +11,9 @@ public class App {
 		
 		Player player1 = new Player("Capucine");
 		System.out.println(player1);
+		
+		Player player2 = new Player("Louise");
+		System.out.println(player2);
 
 	}
 

@@ -5,14 +5,21 @@ import java.util.Objects;
 
 public class Player {
 	
+		public static final float INIT_BALANCE = 50;
+		
+		private Long id;
 		private String pseudo;
 		private LocalDate birthDay;
 		private float balance;
 		private Town playerTown;
 		
+		private static Long count = 0L;
+		
 		public Player(String pseudo) {
 			super();
+			setId(++count);
 			this.pseudo = pseudo;
+			balance = INIT_BALANCE;
 		}
 		public Player(String pseudo, LocalDate birthDay) {
 			this(pseudo);		
@@ -48,6 +55,7 @@ public class Player {
 			this.balance = balance;
 		}
 		
+		
 		public Town getPlayerTown() {
 			return playerTown;
 		}
@@ -55,6 +63,12 @@ public class Player {
 			this.playerTown = playerTown;
 		}
 		
+		public Long getId() {
+			return id;
+		}
+		public void setId(Long id) {
+			this.id = id;
+		}
 		@Override
 		public int hashCode() {
 			return Objects.hash(balance, birthDay, playerTown, pseudo);
@@ -76,8 +90,8 @@ public class Player {
 		
 		@Override
 		public String toString() {
-			return "Player [pseudo=" + pseudo + ", birthDay=" + birthDay + ", balance=" + balance + ", playerTown="
-					+ playerTown + "]";
+			return "Player [id=" + id + ", pseudo=" + pseudo + ", birthDay=" + birthDay + ", balance=" + balance
+					+ ", playerTown=" + playerTown + "]";
 		}	
 		
 }
