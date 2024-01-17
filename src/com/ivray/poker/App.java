@@ -12,17 +12,14 @@ import com.ivray.poker.business.Player;
 public class App {
 	private static Set<Color> colors = new HashSet<>();
 	private static List<Card> cards = new ArrayList<>();
+	private static List<Player> players = new ArrayList<>();
 
 	public static void main(String[] args) {
 		printCards();
+		addPlayer();
 		System.out.println(cards);
 
 		System.out.println(colors);
-		Player player1 = new Player("Capucine");
-		System.out.println(player1);
-
-		Player player2 = new Player("Louise");
-		System.out.println(player2);
 
 	}
 
@@ -41,4 +38,13 @@ public class App {
 		}
 	}
 
+	private static void addPlayer() {
+		Player player1 = new Player("Capucine");
+		Player player2 = new Player("Louise");
+		Player player3 = new Player("Maman");
+		players.add(player1);
+		players.add(player2);
+		players.add(player3);
+
+	}
 }
