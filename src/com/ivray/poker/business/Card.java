@@ -6,28 +6,28 @@ public class Card {
 	private String name;
 	private int value;
 	private Color color;
-	
+
 	public Card(int value, Color color) {
 		super();
 		this.value = value;
 		this.color = color;
-		
+
 		switch (value) {
-		case 11 :
-			name = "Jack";
-			break;
-		case 12 :
-			name = "Queen";
-			break;
-		case 13:
-			name = "King";
-			break;
-		case 14 :
-			name = "Ace";
-			break;
-		default:
-			name = String.valueOf(value);
-			break;
+			case 11:
+				name = "Jack";
+				break;
+			case 12:
+				name = "Queen";
+				break;
+			case 13:
+				name = "King";
+				break;
+			case 14:
+				name = "Ace";
+				break;
+			default:
+				name = String.valueOf(value);
+				break;
 		}
 	}
 
@@ -74,6 +74,6 @@ public class Card {
 
 	@Override
 	public String toString() {
-		return "Card [name=" + name + ", value=" + value + ", color=" + color + "]";
+		return name + " of " + color;
 	}
 }

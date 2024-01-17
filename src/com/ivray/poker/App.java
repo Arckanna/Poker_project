@@ -1,6 +1,7 @@
 package com.ivray.poker;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -17,15 +18,14 @@ public class App {
 	public static void main(String[] args) {
 		printCards();
 		addPlayer();
-		System.out.println(cards);
-
-		System.out.println(colors);
+		shuffleCards();
+		dealCards();
+		System.out.println(players);
 
 	}
 
 	private static void printCards() {
 		Color color1 = new Color("heart");
-		System.out.println(color1);
 		colors.add(color1);
 		colors.add(new Color("spade"));
 		colors.add(new Color("diamond"));
@@ -45,6 +45,20 @@ public class App {
 		players.add(player1);
 		players.add(player2);
 		players.add(player3);
+	}
+
+	private static void shuffleCards() {
+		Collections.shuffle(cards);
+	}
+
+	private static void dealCards() {
+		for (Player player : players) {
+			player.getHandCards().add(cards.remove(0));
+			player.getHandCards().add(cards.remove(0));
+			player.getHandCards().add(cards.remove(0));
+			player.getHandCards().add(cards.remove(0));
+			player.getHandCards().add(cards.remove(0));
+		}
 
 	}
 }

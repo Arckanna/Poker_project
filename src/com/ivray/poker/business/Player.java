@@ -110,8 +110,8 @@ public class Player {
 
 	@Override
 	public String toString() {
-		String string = "Player [id=" + id + ", pseudo=" + pseudo + ", birthDay=" + birthDay + ", balance=" + balance
-				+ ", playerTown=" + playerTown + ", handCards=" + handCards + "]";
+		String string = pseudo + " id:" + id + ", birthDay: " + birthDay + ", balance=" + balance
+				+ ", playerTown:" + playerTown + ", handCards: " + handCards + "\n";
 		return string;
 	}
 
