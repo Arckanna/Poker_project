@@ -6,13 +6,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
 import java.util.Map.Entry;
+import java.util.Set;
 
 import com.ivray.poker.business.Card;
 import com.ivray.poker.business.Color;
 import com.ivray.poker.business.Player;
+import com.ivray.poker.util.CardComparatorOnValue;
 
 public class App {
 	private static Set<Color> colors = new HashSet<>();
@@ -24,13 +24,21 @@ public class App {
 		addPlayer();
 		shuffleCards();
 		dealCards();
+		sortPlayers();
+
 		for (Player player : players) {
 			System.out.println(player);
-
 			System.out.println(analyzeHand(player));
-
 		}
+		sortCards();
+	}
 
+	private static void sortCards() {
+		Collections.sort(cards, new CardComparatorOnValue());
+	}
+
+	private static void sortPlayers() {
+		Collections.sort(players);
 	}
 
 	private static void printCards() {
