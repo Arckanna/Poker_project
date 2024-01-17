@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class Player {
+public class Player implements Comparable<Player> {
 
 	public static final float INIT_BALANCE = 50;
 
@@ -106,6 +106,11 @@ public class Player {
 		return Float.floatToIntBits(balance) == Float.floatToIntBits(other.balance)
 				&& Objects.equals(birthDay, other.birthDay) && Objects.equals(playerTown, other.playerTown)
 				&& Objects.equals(pseudo, other.pseudo);
+	}
+
+	@Override
+	public int compareTo(Player otherPlayer) {
+		return this.getPseudo().compareTo(otherPlayer.getPseudo());
 	}
 
 	@Override
