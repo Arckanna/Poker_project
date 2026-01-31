@@ -70,8 +70,8 @@ public class Town {
 
 	@Override
 	public String toString() {
-		return "Town [name=" + name + ", postalCode=" + postalCode + ", longitude=" + longitude + ", latitude="
-				+ latitude + "]";
+		return "Town :" + name + ", postalCode :" + postalCode + ", longitude :" + longitude + ", latitude :"
+				+ latitude;
 	}
 	
 }

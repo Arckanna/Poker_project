@@ -11,13 +11,14 @@ import java.util.Set;
 
 import com.ivray.poker.business.Card;
 import com.ivray.poker.business.Color;
+import com.ivray.poker.business.HandRank;
 import com.ivray.poker.business.Player;
 import com.ivray.poker.util.CardComparatorOnValue;
 
 public class App {
-	private static Set<Color> colors = new HashSet<>();
-	private static List<Card> cards = new ArrayList<>();
-	private static List<Player> players = new ArrayList<>();
+	private static final Set<Color> colors = new HashSet<>();
+	private static final List<Card> cards = new ArrayList<>();
+	private static final List<Player> players = new ArrayList<>();
 
 	public static void main(String[] args) {
 		printCards();
@@ -80,52 +81,116 @@ public class App {
 	}
 
 	/**
-	 * This method analyzes the hand of the player given as
-	 * a parameter
-	 * 
-	 * @param player
-	 * @return the best combination of cards
+	 * Analyse la main du joueur et retourne la meilleure combinaison.
+	 * Ordre des combinaisons : quinte royale > quinte flush > carré > full >
+	 * flush > quinte > brelan > deux paires > paire > rien.
+	 *
+	 * @param player le joueur dont on analyse la main
+	 * @return le rang de la main (HandRank)
 	 */
-	private static String analyzeHand(Player player) {
-		String result = "";
-		List<Card> handCards = player.getHandCards();
-		Map<Integer, Integer> occurencesMap = new HashMap<>();
-		int nbPairs = 0;
-		boolean nbThreeOfAKind = false;
-		boolean nbFourOfAKind = false;
+	private static HandRank analyzeHand(Player player) {
+		List<Card> handCards = new ArrayList<>(player.getHandCards());
+		Collections.sort(handCards, new CardComparatorOnValue());
 
+		Map<Integer, Integer> occurencesMap = new HashMap<>();
 		for (Card card : handCards) {
 			int value = card.getValue();
-			if (occurencesMap.containsKey(value)) {
-				occurencesMap.put(value, occurencesMap.get(value) + 1);
-			} else {
-				occurencesMap.put(value, 1);
-			}
+			occurencesMap.merge(value, 1, Integer::sum);
 		}
 		System.out.println(occurencesMap);
+
+		int nbPairs = 0;
+		boolean hasThreeOfAKind = false;
+		boolean hasFourOfAKind = false;
 		for (Entry<Integer, Integer> entry : occurencesMap.entrySet()) {
-			if (entry.getValue() == 2) {
-				nbPairs++;
-			} else if (entry.getValue() == 3) {
-				nbThreeOfAKind = true;
-			} else if (entry.getValue() == 4) {
-				nbFourOfAKind = true;
+			switch (entry.getValue()) {
+				case 2 -> nbPairs++;
+				case 3 -> hasThreeOfAKind = true;
+				case 4 -> hasFourOfAKind = true;
+				default -> { }
 			}
 		}
-		if (nbPairs == 1 && nbThreeOfAKind) {
-			result = "Full\n";
-		} else if (nbPairs == 2) {
-			result = "Two pairs\n";
-		} else if (nbPairs == 1) {
-			result = "One pair\n";
-		} else if (nbThreeOfAKind) {
-			result = "Three of a kind\n";
-		} else if (nbFourOfAKind) {
-			result = "Four of a kind \n";
-		} else {
-			result = "Nothing \n";
+
+		boolean flush = isFlush(handCards);
+		boolean straight = isStraight(handCards);
+
+		// Quinte flush ou quinte royale (flush + quinte)
+		if (flush && straight) {
+			return isRoyalStraight(handCards) ? HandRank.QUINTE_ROYALE : HandRank.QUINTE_FLUSH;
 		}
-		return result;
+		if (hasFourOfAKind) {
+			return HandRank.CARRE;
+		}
+		if (nbPairs == 1 && hasThreeOfAKind) {
+			return HandRank.FULL;
+		}
+		if (flush) {
+			return HandRank.FLUSH;
+		}
+		if (straight) {
+			return HandRank.QUINTE;
+		}
+		if (hasThreeOfAKind) {
+			return HandRank.BRELAN;
+		}
+		if (nbPairs == 2) {
+			return HandRank.DEUX_PAIRES;
+		}
+		if (nbPairs == 1) {
+			return HandRank.PAIRE;
+		}
+		return HandRank.RIEN;
 	}
 
+	/** Retourne true si les 5 cartes sont de la même couleur. */
+	private static boolean isFlush(List<Card> handCards) {
+		if (handCards.isEmpty()) {
+			return false;
+		}
+		Color first = handCards.get(0).getColor();
+		for (int i = 1; i < handCards.size(); i++) {
+			if (!handCards.get(i).getColor().equals(first)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Retourne true si les 5 cartes forment une quinte (valeurs consécutives).
+	 * Gère la quinte à l'as (A-2-3-4-5).
+	 */
+	private static boolean isStraight(List<Card> handCards) {
+		if (handCards.size() != 5) {
+			return false;
+		}
+		List<Integer> values = new ArrayList<>();
+		for (Card c : handCards) {
+			values.add(c.getValue());
+		}
+		Collections.sort(values);
+
+		// Quinte classique (ex: 2-3-4-5-6 ou 10-J-Q-K-A)
+		boolean consecutive = true;
+		for (int i = 0; i < 4; i++) {
+			if (values.get(i + 1) - values.get(i) != 1) {
+				consecutive = false;
+				break;
+			}
+		}
+		// Quinte à l'as (A-2-3-4-5) : valeurs 2,3,4,5,14
+		return consecutive || (values.get(0) == 2 && values.get(1) == 3 && values.get(2) == 4
+				&& values.get(3) == 5 && values.get(4) == 14);
+	}
+
+	/** Quinte royale = 10, J, Q, K, A de la même couleur. */
+	private static boolean isRoyalStraight(List<Card> handCards) {
+		List<Integer> values = new ArrayList<>();
+		for (Card c : handCards) {
+			values.add(c.getValue());
+		}
+		Collections.sort(values);
+		return values.get(0) == 10 && values.get(1) == 11 && values.get(2) == 12
+				&& values.get(3) == 13 && values.get(4) == 14;
+	}
 }
