@@ -7,6 +7,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
+import java.util.Scanner;
 import java.util.Set;
 
 import com.ivray.poker.business.Card;
@@ -20,22 +22,223 @@ public class App {
 	private static final List<Card> cards = new ArrayList<>();
 	private static final List<Player> players = new ArrayList<>();
 
-	public static void main(String[] args) {
-		printCards();
-		addPlayer();
-		shuffleCards();
-		dealCards();
-		sortPlayers();
+	/** Ante (mise fixe) payée par chaque joueur au début de la main. */
+	private static final int ANTE = 2;
+	/** Mise minimum pour un bet. */
+	private static final int MISE_MIN = 2;
 
-		for (Player player : players) {
-			System.out.println(player);
-			System.out.println(analyzeHand(player));
+	private static float pot = 0;
+	private static final Scanner scanner = new Scanner(System.in);
+	private static final Random random = new Random();
+
+	public static void main(String[] args) {
+		initCouleurs();
+		initPaquet();
+		ajouterJoueurs();
+		collecterAnte();
+		melangerEtDistribuer();
+		afficherMainJoueurHumain();
+		boolean[] aFolded = tourDeMise();
+		showdown(aFolded);
+	}
+
+	/** Crée les 4 couleurs et recrée le paquet de 52 cartes. */
+	private static void initPaquet() {
+		cards.clear();
+		for (Color color : colors) {
+			for (int i = 2; i <= 14; i++) {
+				cards.add(new Card(i, color));
+			}
+		}
+		for (Player p : players) {
+			p.getHandCards().clear();
+		}
+	}
+
+	private static void collecterAnte() {
+		pot = 0;
+		for (Player p : players) {
+			p.setBalance(p.getBalance() - ANTE);
+			pot += ANTE;
+		}
+		System.out.println("--- Ante --- Chaque joueur paie " + ANTE + ". Pot = " + pot);
+	}
+
+	private static void melangerEtDistribuer() {
+		Collections.shuffle(cards);
+		for (Player p : players) {
+			for (int i = 0; i < 5; i++) {
+				p.getHandCards().add(cards.remove(0));
+			}
+		}
+	}
+
+	private static void afficherMainJoueurHumain() {
+		Player humain = null;
+		for (Player p : players) {
+			if (p.isHuman()) {
+				humain = p;
+				break;
+			}
+		}
+		if (humain == null) return;
+		List<Card> main = new ArrayList<>(humain.getHandCards());
+		Collections.sort(main, new CardComparatorOnValue());
+		System.out.println("--- Votre main --- " + humain.getPseudo() + " | " + main);
+		System.out.println("Combinaison : " + getHandRank(humain));
+		System.out.println("Pot : " + pot + " | Votre stack : " + humain.getBalance());
+	}
+
+	/**
+	 * Un tour de mise : le joueur humain agit en premier, puis chaque IA répond.
+	 * @return tableau aFolded[i] = true si le joueur i s'est couché
+	 */
+	private static boolean[] tourDeMise() {
+		int n = players.size();
+		boolean[] aFolded = new boolean[n];
+		float[] miseActuelle = new float[n]; // montant misé par chaque joueur ce tour
+		float miseMax = 0;
+		int dernierRelance = 0;
+		int idx = 0;
+
+		while (true) {
+			if (aFolded[idx]) {
+				idx = (idx + 1) % n;
+				continue;
+			}
+			float aSuivre = miseMax - miseActuelle[idx];
+			Player p = players.get(idx);
+
+			if (aSuivre <= 0) {
+				// Pas de mise à suivre : check ou bet
+				String action = joueurHumainCheckOuBet(p);
+				if ("m".equalsIgnoreCase(action)) {
+					int montant = demanderMise(p);
+					miseActuelle[idx] += montant;
+					pot += montant;
+					miseMax = miseActuelle[idx];
+					dernierRelance = idx;
+					System.out.println(p.getPseudo() + " mise " + montant + ". Pot = " + pot);
+				} else {
+					System.out.println(p.getPseudo() + " check.");
+				}
+			} else {
+				// Suivre ou se coucher
+				boolean call = joueurHumainCallOuFold(p, aSuivre);
+				if (call) {
+					float montant = Math.min(aSuivre, p.getBalance());
+					miseActuelle[idx] += montant;
+					pot += montant;
+					p.setBalance(p.getBalance() - montant);
+					System.out.println(p.getPseudo() + " suit (" + montant + "). Pot = " + pot);
+				} else {
+					aFolded[idx] = true;
+					System.out.println(p.getPseudo() + " se couche.");
+				}
+			}
+			int next = (idx + 1) % n;
+			while (next != idx && aFolded[next]) next = (next + 1) % n;
+			if (next == idx) break; // seul joueur restant
+			idx = next;
+			// Terminer quand tout le monde a égalisé et on revient au dernier relanceur
+			float m = miseMax;
+			boolean tousEgalises = true;
+			for (int i = 0; i < n; i++) {
+				if (!aFolded[i] && miseActuelle[i] < m) { tousEgalises = false; break; }
+			}
+			if (tousEgalises && idx == dernierRelance) break;
 		}
 
-		List<Player> gagnants = getGagnants(players);
-		afficherGagnants(gagnants);
+		return aFolded;
+	}
 
-		sortCards();
+	private static String joueurHumainCheckOuBet(Player p) {
+		if (!p.isHuman()) {
+			// IA : check souvent, mise parfois si bonne main
+			int force = getHandRank(p).getForce();
+			if (force >= 4 && random.nextBoolean()) {
+				return "m";
+			}
+			return "c";
+		}
+		System.out.print("Check (c) ou Miser (m) ? ");
+		String line = scanner.nextLine().trim();
+		if ("m".equalsIgnoreCase(line) || "mise".equalsIgnoreCase(line)) return "m";
+		return "c";
+	}
+
+	private static boolean joueurHumainCallOuFold(Player p, float aSuivre) {
+		if (!p.isHuman()) {
+			int force = getHandRank(p).getForce();
+			if (force >= 2 && p.getBalance() >= aSuivre) return true;
+			return random.nextFloat() < 0.4f;
+		}
+		System.out.print("Suivre " + aSuivre + " (s) ou Se coucher (f) ? ");
+		String line = scanner.nextLine().trim();
+		return "s".equalsIgnoreCase(line) || "suivre".equalsIgnoreCase(line) || "c".equalsIgnoreCase(line) || "call".equalsIgnoreCase(line);
+	}
+
+	private static int demanderMise(Player p) {
+		if (!p.isHuman()) {
+			int force = getHandRank(p).getForce();
+			int mise = Math.min(MISE_MIN + force * 2, (int) Math.min(p.getBalance(), 10));
+			p.setBalance(p.getBalance() - mise);
+			return mise;
+		}
+		System.out.print("Montant à miser (min " + MISE_MIN + ", max " + (int) p.getBalance() + ") ? ");
+		String line = scanner.nextLine().trim();
+		int montant = MISE_MIN;
+		try {
+			montant = Integer.parseInt(line);
+		} catch (NumberFormatException e) {
+			// garde défaut
+		}
+		montant = Math.max(MISE_MIN, Math.min(montant, (int) p.getBalance()));
+		p.setBalance(p.getBalance() - montant);
+		return montant;
+	}
+
+	private static void showdown(boolean[] aFolded) {
+		List<Player> encoreEnJeu = new ArrayList<>();
+		for (int i = 0; i < players.size(); i++) {
+			if (!aFolded[i]) encoreEnJeu.add(players.get(i));
+		}
+		if (encoreEnJeu.isEmpty()) return;
+		if (encoreEnJeu.size() == 1) {
+			Player gagnant = encoreEnJeu.get(0);
+			gagnant.setBalance(gagnant.getBalance() + pot);
+			System.out.println("--- Gagnant --- " + gagnant.getPseudo() + " remporte le pot (" + pot + ") : tout le monde s'est couché.");
+			return;
+		}
+		System.out.println("--- Showdown ---");
+		for (Player p : encoreEnJeu) {
+			List<Card> main = new ArrayList<>(p.getHandCards());
+			Collections.sort(main, new CardComparatorOnValue());
+			System.out.println(p.getPseudo() + " : " + main + " → " + getHandRank(p));
+		}
+		List<Player> gagnants = getGagnants(encoreEnJeu);
+		for (Player g : gagnants) {
+			g.setBalance(g.getBalance() + pot / gagnants.size());
+		}
+		afficherGagnants(gagnants);
+		System.out.println("Pot remporté : " + pot);
+	}
+
+	private static void initCouleurs() {
+		colors.clear();
+		colors.add(new Color("heart"));
+		colors.add(new Color("spade"));
+		colors.add(new Color("diamond"));
+		colors.add(new Color("club"));
+	}
+
+	private static void ajouterJoueurs() {
+		players.clear();
+		Player humain = new Player("Vous");
+		humain.setHuman(true);
+		players.add(humain);
+		players.add(new Player("Louise"));
+		players.add(new Player("Maman"));
 	}
 
 	/**
@@ -166,68 +369,6 @@ public class App {
 			return HandRank.PAIRE;
 		}
 		return HandRank.RIEN;
-	}
-
-	private static void sortCards() {
-		Collections.sort(cards, new CardComparatorOnValue());
-	}
-
-	private static void sortPlayers() {
-		Collections.sort(players);
-	}
-
-	private static void printCards() {
-		Color color1 = new Color("heart");
-		colors.add(color1);
-		colors.add(new Color("spade"));
-		colors.add(new Color("diamond"));
-		colors.add(new Color("club"));
-
-		for (Color color : colors) {
-			for (int i = 2; i <= 14; i++) {
-				cards.add(new Card(i, color));
-			}
-		}
-	}
-
-	private static void addPlayer() {
-		Player player1 = new Player("Capucine");
-		Player player2 = new Player("Louise");
-		Player player3 = new Player("Maman");
-		players.add(player1);
-		players.add(player2);
-		players.add(player3);
-	}
-
-	private static void shuffleCards() {
-		Collections.shuffle(cards);
-	}
-
-	private static void dealCards() {
-		for (Player player : players) {
-			player.getHandCards().add(cards.remove(0));
-			player.getHandCards().add(cards.remove(0));
-			player.getHandCards().add(cards.remove(0));
-			player.getHandCards().add(cards.remove(0));
-			player.getHandCards().add(cards.remove(0));
-		}
-
-	}
-
-	/**
-	 * Analyse la main du joueur et affiche les occurrences (debug).
-	 * @param player le joueur dont on analyse la main
-	 * @return le rang de la main (HandRank)
-	 */
-	private static HandRank analyzeHand(Player player) {
-		List<Card> handCards = new ArrayList<>(player.getHandCards());
-		Collections.sort(handCards, new CardComparatorOnValue());
-		Map<Integer, Integer> occurencesMap = new HashMap<>();
-		for (Card card : handCards) {
-			occurencesMap.merge(card.getValue(), 1, Integer::sum);
-		}
-		System.out.println(occurencesMap);
-		return getHandRank(player);
 	}
 
 	/** Retourne true si les 5 cartes sont de la même couleur. */

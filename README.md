@@ -1,6 +1,6 @@
 # Poker_project
 
-Projet Java de simulation d’un jeu de poker (5 cartes par joueur). Le programme constitue un jeu de 52 cartes, distribue 5 cartes à chaque joueur, évalue les mains et désigne le ou les gagnants.
+Projet Java de simulation d’un jeu de poker (5 cartes par joueur). **Un des joueurs est l’utilisateur** : il voit sa main et peut choisir ses actions (check, miser, suivre, se coucher). Les autres joueurs sont des IA qui répondent au tour de mise. Chaque joueur paie une **ante** (mise fixe) au début ; après un **tour de mise** (humain en premier, puis les IA), le **showdown** désigne le ou les gagnants si personne ne s’est couché.
 
 ## Prérequis
 
@@ -26,10 +26,19 @@ javac -d out -encoding UTF-8 -sourcepath src src/module-info.java src/com/ivray/
 java -p out -m Poker_project/com.ivray.poker.App
 ```
 
+## Déroulement d’une main
+
+1. **Ante** : chaque joueur paie une mise fixe (2 jetons par défaut) ; le pot est constitué de ces antes.
+2. **Distribution** : 5 cartes à chaque joueur.
+3. **Tour de mise** : le joueur humain (« Vous ») agit en premier, puis chaque IA à son tour.
+   - Si personne n’a encore misé : **Check (c)** ou **Miser (m)** + montant.
+   - Si quelqu’un a misé : **Suivre (s)** pour égaliser la mise, ou **Se coucher (f)** pour abandonner.
+4. **Showdown** : si au moins deux joueurs sont encore en jeu, on compare les mains ; le ou les gagnants se partagent le pot. Si un seul joueur reste (les autres se sont couchés), il remporte le pot sans montrer sa main.
+
 ## Fonctionnalités
 
 - **Jeu de 52 cartes** : 4 couleurs (cœur, pique, carreau, trèfle), valeurs 2 à 14 (As).
-- **Joueurs** : 3 joueurs par défaut (Capucine, Louise, Maman), avec main de 5 cartes et balance initiale.
+- **Joueurs** : 1 joueur humain (« Vous ») + 2 IA (Louise, Maman), chacun avec 5 cartes et une balance initiale (50 jetons).
 - **Évaluation des mains** : reconnaissance de toutes les combinaisons classiques, dans l’ordre de force suivant :
 
 | Rang | Combinaison   | Description                          |
@@ -46,7 +55,7 @@ java -p out -m Poker_project/com.ivray.poker.App
 | 1    | Rien          | Carte haute                         |
 
 - **Comparaison des mains** : utilisation de `HandRank.getForce()` pour comparer les combinaisons ; en cas d’égalité, départage par les valeurs des cartes (triées de la plus forte à la plus faible).
-- **Gagnant(s)** : affichage du ou des gagnants en fin de main, avec gestion des ex æquo.
+- **Gagnant(s)** : affichage du ou des gagnants en fin de main, avec gestion des ex æquo. Le pot est crédité sur la (les) balance(s) du (des) gagnant(s).
 
 ## Structure du projet
 
@@ -54,12 +63,12 @@ java -p out -m Poker_project/com.ivray.poker.App
 src/
 ├── module-info.java          # Module Poker_project
 └── com/ivray/poker/
-    ├── App.java              # Point d’entrée, distribution, analyse et comparaison des mains
+    ├── App.java              # Point d’entrée : ante, distribution, tour de mise (humain + IA), showdown
     ├── business/
     │   ├── Card.java         # Carte (valeur, couleur)
     │   ├── Color.java        # Couleur (cœur, pique, carreau, trèfle)
     │   ├── HandRank.java     # Enum des combinaisons et de leur force
-    │   ├── Player.java       # Joueur (pseudo, main, balance)
+    │   ├── Player.java       # Joueur (pseudo, main, balance, humain ou IA)
     │   └── Town.java        # Ville (optionnel, profil joueur)
     └── util/
         └── CardComparatorOnValue.java   # Tri des cartes par valeur
@@ -68,20 +77,28 @@ src/
 ## Exemple de sortie
 
 ```
-Capucine id:1, ... handCards: [3 of diamond, 10 of heart, ...]
-{3=2, 6=1, 8=1, 10=1}
-Paire
-Louise id:2, ... handCards: [7 of club, 3 of club, 7 of heart, ...]
-{3=1, 7=2, 12=1, 13=1}
-Paire
+--- Ante --- Chaque joueur paie 2. Pot = 6.0
+--- Votre main --- Vous | [3 of diamond, 6 of heart, ...]
+Combinaison : Paire
+Pot : 6.0 | Votre stack : 48.0
+Check (c) ou Miser (m) ? m
+Montant à miser (min 2, max 48) ? 4
+Vous mise 4. Pot = 10.0
+Louise suit (4.0). Pot = 14.0
+Maman se couche.
 ...
+--- Showdown ---
+Vous : [...] → Paire
+Louise : [...] → Rien
 --- Gagnant(s) ---
-Louise remporte la main avec Paire.
+Vous remporte la main avec Paire.
+Pot remporté : 14.0
 ```
 
 ## Pistes d’évolution
 
 - Introduire un objet **Deck** (paquet) dédié.
-- Ajouter un **pot** et des **tours de mise** (check, bet, call, raise, fold).
+- Relancer (raise) en plus de miser / suivre / se coucher.
 - Adapter au **Texas Hold’em** (2 cartes par joueur + 5 cartes communes).
-- Interface graphique ou menu console pour enchaîner plusieurs mains.
+- Boucle de parties : enchaîner plusieurs mains jusqu’à ce qu’un joueur n’ait plus de jetons.
+- Interface graphique ou menu console.

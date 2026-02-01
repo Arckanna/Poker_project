@@ -14,6 +14,7 @@ public class Player implements Comparable<Player> {
 	private LocalDate birthDay;
 	private float balance;
 	private Town playerTown;
+	private boolean human;
 
 	private static Long count = 0L;
 
@@ -79,6 +80,14 @@ public class Player implements Comparable<Player> {
 
 	public void setPlayerTown(Town playerTown) {
 		this.playerTown = playerTown;
+	}
+
+	public boolean isHuman() {
+		return human;
+	}
+
+	public void setHuman(boolean human) {
+		this.human = human;
 	}
 
 	public Long getId() {
