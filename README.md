@@ -11,20 +11,28 @@ Projet Java de simulation d’un jeu de poker (5 cartes par joueur). **Un des jo
 ### Compilation
 
 ```bash
-javac -d out -encoding UTF-8 -sourcepath src src/module-info.java src/com/ivray/poker/App.java src/com/ivray/poker/business/*.java src/com/ivray/poker/util/*.java
+javac -d out -encoding UTF-8 -sourcepath src src/module-info.java src/com/ivray/poker/App.java src/com/ivray/poker/GameRunner.java src/com/ivray/poker/business/*.java src/com/ivray/poker/util/*.java src/com/ivray/poker/ui/*.java
 ```
 
-Sous Windows (PowerShell), en listant les fichiers explicitement :
-
-```powershell
-javac -d out -encoding UTF-8 -sourcepath src src/module-info.java src/com/ivray/poker/App.java src/com/ivray/poker/business/Card.java src/com/ivray/poker/business/Color.java src/com/ivray/poker/business/HandRank.java src/com/ivray/poker/business/Player.java src/com/ivray/poker/business/Town.java src/com/ivray/poker/business/Deck.java src/com/ivray/poker/business/RoundState.java src/com/ivray/poker/business/ActionType.java src/com/ivray/poker/business/Action.java src/com/ivray/poker/business/BotStrategy.java src/com/ivray/poker/business/SimpleBotStrategy.java src/com/ivray/poker/util/CardComparatorOnValue.java
-```
+Le module `java.desktop` est requis pour l’interface graphique (Swing).
 
 ### Exécution
 
+**Console (une main) :**
 ```bash
 java -p out -m Poker_project/com.ivray.poker.App
 ```
+
+**Interface graphique (Swing) :**
+```bash
+java -p out -m Poker_project/com.ivray.poker.App gui
+```
+ou directement :
+```bash
+java -p out -m Poker_project/com.ivray.poker.ui.PokerGUI
+```
+
+L’interface graphique affiche votre main (5 cartes avec symboles ♥♠♦♣), le pot, votre stack, la combinaison détectée, et des boutons pour **Check**, **Miser** (avec montant), **Suivre** et **Se coucher**. Un log à droite retrace les actions de la main.
 
 ## Déroulement d’une main
 
@@ -77,8 +85,15 @@ src/
     │   ├── Action.java       # Record (type, amount) + factory (fold, check, call, bet, raise)
     │   ├── BotStrategy.java  # Interface de stratégie IA
     │   └── SimpleBotStrategy.java  # IA « débutant solide » (force main + coût + hasard)
-    └── util/
-        └── CardComparatorOnValue.java   # Tri des cartes par valeur
+    ├── util/
+    │   ├── CardComparatorOnValue.java   # Tri des cartes par valeur
+    │   └── GameDisplay.java  # Affichage console (titres, bordures, couleurs)
+    └── ui/
+        ├── GameView.java         # Interface d'affichage (console ou GUI)
+        ├── HumanInputProvider.java  # Interface de saisie joueur (console ou GUI)
+        ├── ConsoleInput.java    # Saisie clavier
+        ├── ConsoleView.java     # Affichage console (GameDisplay)
+        └── PokerGUI.java        # Fenêtre Swing (cartes, pot, stack, boutons, log)
 ```
 
 ## Exemple de sortie
