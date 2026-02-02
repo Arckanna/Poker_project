@@ -1,5 +1,15 @@
 package com.ivray.poker;
 
+import com.ivray.poker.business.Action;
+import com.ivray.poker.business.BotStrategy;
+import com.ivray.poker.business.Card;
+import com.ivray.poker.business.Color;
+import com.ivray.poker.business.Deck;
+import com.ivray.poker.business.HandRank;
+import com.ivray.poker.business.Player;
+import com.ivray.poker.business.RoundState;
+import com.ivray.poker.business.SimpleBotStrategy;
+import com.ivray.poker.util.CardComparatorOnValue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -11,16 +21,10 @@ import java.util.Random;
 import java.util.Scanner;
 import java.util.Set;
 
-import com.ivray.poker.business.Card;
-import com.ivray.poker.business.Color;
-import com.ivray.poker.business.HandRank;
-import com.ivray.poker.business.Player;
-import com.ivray.poker.util.CardComparatorOnValue;
-
 public class App {
 	private static final Set<Color> colors = new HashSet<>();
-	private static final List<Card> cards = new ArrayList<>();
 	private static final List<Player> players = new ArrayList<>();
+	private static final BotStrategy botStrategy = new SimpleBotStrategy();
 
 	/** Ante (mise fixe) payée par chaque joueur au début de la main. */
 	private static final int ANTE = 2;
@@ -33,7 +37,6 @@ public class App {
 
 	public static void main(String[] args) {
 		initCouleurs();
-		initPaquet();
 		ajouterJoueurs();
 		collecterAnte();
 		melangerEtDistribuer();
@@ -42,16 +45,11 @@ public class App {
 		showdown(aFolded);
 	}
 
-	/** Crée les 4 couleurs et recrée le paquet de 52 cartes. */
-	private static void initPaquet() {
-		cards.clear();
-		for (Color color : colors) {
-			for (int i = 2; i <= 14; i++) {
-				cards.add(new Card(i, color));
-			}
-		}
-		for (Player p : players) {
-			p.getHandCards().clear();
+	/** Distribue 5 cartes à un joueur depuis le paquet. */
+	private static void deal5(Deck deck, Player p) {
+		p.getHandCards().clear();
+		for (int i = 0; i < 5; i++) {
+			p.getHandCards().add(deck.draw());
 		}
 	}
 
@@ -65,11 +63,10 @@ public class App {
 	}
 
 	private static void melangerEtDistribuer() {
-		Collections.shuffle(cards);
+		Deck deck = new Deck(new ArrayList<>(colors));
+		deck.shuffle(random);
 		for (Player p : players) {
-			for (int i = 0; i < 5; i++) {
-				p.getHandCards().add(cards.remove(0));
-			}
+			deal5(deck, p);
 		}
 	}
 
@@ -109,31 +106,73 @@ public class App {
 			float aSuivre = miseMax - miseActuelle[idx];
 			Player p = players.get(idx);
 
-			if (aSuivre <= 0) {
-				// Pas de mise à suivre : check ou bet
-				String action = joueurHumainCheckOuBet(p);
-				if ("m".equalsIgnoreCase(action)) {
-					int montant = demanderMise(p);
-					miseActuelle[idx] += montant;
-					pot += montant;
-					miseMax = miseActuelle[idx];
-					dernierRelance = idx;
-					System.out.println(p.getPseudo() + " mise " + montant + ". Pot = " + pot);
+			if (p.isHuman()) {
+				// Joueur humain : saisie clavier
+				if (aSuivre <= 0) {
+					String action = joueurHumainCheckOuBet(p);
+					if ("m".equalsIgnoreCase(action)) {
+						int montant = demanderMise(p);
+						miseActuelle[idx] += montant;
+						pot += montant;
+						miseMax = miseActuelle[idx];
+						dernierRelance = idx;
+						System.out.println(p.getPseudo() + " mise " + montant + ". Pot = " + pot);
+					} else {
+						System.out.println(p.getPseudo() + " check.");
+					}
 				} else {
-					System.out.println(p.getPseudo() + " check.");
+					boolean call = joueurHumainCallOuFold(p, aSuivre);
+					if (call) {
+						float montant = Math.min(aSuivre, p.getBalance());
+						miseActuelle[idx] += montant;
+						pot += montant;
+						p.setBalance(p.getBalance() - montant);
+						System.out.println(p.getPseudo() + " suit (" + montant + "). Pot = " + pot);
+					} else {
+						aFolded[idx] = true;
+						System.out.println(p.getPseudo() + " se couche.");
+					}
 				}
 			} else {
-				// Suivre ou se coucher
-				boolean call = joueurHumainCallOuFold(p, aSuivre);
-				if (call) {
-					float montant = Math.min(aSuivre, p.getBalance());
-					miseActuelle[idx] += montant;
-					pot += montant;
-					p.setBalance(p.getBalance() - montant);
-					System.out.println(p.getPseudo() + " suit (" + montant + "). Pot = " + pot);
-				} else {
-					aFolded[idx] = true;
-					System.out.println(p.getPseudo() + " se couche.");
+				// IA : stratégie (RoundState + HandRank)
+				RoundState state = new RoundState();
+				state.pot = (int) pot;
+				state.currentBet = (int) aSuivre;
+				HandRank rank = getHandRank(p);
+				Action action = botStrategy.decide(p, state, rank, random);
+
+				switch (action.type()) {
+					case FOLD -> {
+						aFolded[idx] = true;
+						System.out.println(p.getPseudo() + " se couche.");
+					}
+					case CHECK -> System.out.println(p.getPseudo() + " check.");
+					case CALL -> {
+						float montant = Math.min(aSuivre, p.getBalance());
+						p.setBalance(p.getBalance() - montant);
+						miseActuelle[idx] += montant;
+						pot += montant;
+						System.out.println(p.getPseudo() + " suit (" + (int) montant + "). Pot = " + pot);
+					}
+					case BET -> {
+						int mise = Math.min(action.amount(), (int) p.getBalance());
+						p.setBalance(p.getBalance() - mise);
+						miseActuelle[idx] += mise;
+						pot += mise;
+						miseMax = miseActuelle[idx];
+						dernierRelance = idx;
+						System.out.println(p.getPseudo() + " mise " + mise + ". Pot = " + pot);
+					}
+					case RAISE -> {
+						int total = (int) aSuivre + action.amount();
+						int mise = Math.min(total, (int) p.getBalance());
+						p.setBalance(p.getBalance() - mise);
+						miseActuelle[idx] += mise;
+						pot += mise;
+						miseMax = miseActuelle[idx];
+						dernierRelance = idx;
+						System.out.println(p.getPseudo() + " relance " + mise + ". Pot = " + pot);
+					}
 				}
 			}
 			int next = (idx + 1) % n;
@@ -153,38 +192,19 @@ public class App {
 	}
 
 	private static String joueurHumainCheckOuBet(Player p) {
-		if (!p.isHuman()) {
-			// IA : check souvent, mise parfois si bonne main
-			int force = getHandRank(p).getForce();
-			if (force >= 4 && random.nextBoolean()) {
-				return "m";
-			}
-			return "c";
-		}
-		System.out.print("Check (c) ou Miser (m) ? ");
+		System.out.print(p.getPseudo() + " : Check (c) ou Miser (m) ? ");
 		String line = scanner.nextLine().trim();
 		if ("m".equalsIgnoreCase(line) || "mise".equalsIgnoreCase(line)) return "m";
 		return "c";
 	}
 
 	private static boolean joueurHumainCallOuFold(Player p, float aSuivre) {
-		if (!p.isHuman()) {
-			int force = getHandRank(p).getForce();
-			if (force >= 2 && p.getBalance() >= aSuivre) return true;
-			return random.nextFloat() < 0.4f;
-		}
-		System.out.print("Suivre " + aSuivre + " (s) ou Se coucher (f) ? ");
+		System.out.print(p.getPseudo() + " : Suivre " + aSuivre + " (s) ou Se coucher (f) ? ");
 		String line = scanner.nextLine().trim();
 		return "s".equalsIgnoreCase(line) || "suivre".equalsIgnoreCase(line) || "c".equalsIgnoreCase(line) || "call".equalsIgnoreCase(line);
 	}
 
 	private static int demanderMise(Player p) {
-		if (!p.isHuman()) {
-			int force = getHandRank(p).getForce();
-			int mise = Math.min(MISE_MIN + force * 2, (int) Math.min(p.getBalance(), 10));
-			p.setBalance(p.getBalance() - mise);
-			return mise;
-		}
 		System.out.print("Montant à miser (min " + MISE_MIN + ", max " + (int) p.getBalance() + ") ? ");
 		String line = scanner.nextLine().trim();
 		int montant = MISE_MIN;

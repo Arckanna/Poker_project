@@ -17,7 +17,7 @@ javac -d out -encoding UTF-8 -sourcepath src src/module-info.java src/com/ivray/
 Sous Windows (PowerShell), en listant les fichiers explicitement :
 
 ```powershell
-javac -d out -encoding UTF-8 -sourcepath src src/module-info.java src/com/ivray/poker/App.java src/com/ivray/poker/business/Card.java src/com/ivray/poker/business/Color.java src/com/ivray/poker/business/HandRank.java src/com/ivray/poker/business/Player.java src/com/ivray/poker/business/Town.java src/com/ivray/poker/util/CardComparatorOnValue.java
+javac -d out -encoding UTF-8 -sourcepath src src/module-info.java src/com/ivray/poker/App.java src/com/ivray/poker/business/Card.java src/com/ivray/poker/business/Color.java src/com/ivray/poker/business/HandRank.java src/com/ivray/poker/business/Player.java src/com/ivray/poker/business/Town.java src/com/ivray/poker/business/Deck.java src/com/ivray/poker/business/RoundState.java src/com/ivray/poker/business/ActionType.java src/com/ivray/poker/business/Action.java src/com/ivray/poker/business/BotStrategy.java src/com/ivray/poker/business/SimpleBotStrategy.java src/com/ivray/poker/util/CardComparatorOnValue.java
 ```
 
 ### Exécution
@@ -32,13 +32,14 @@ java -p out -m Poker_project/com.ivray.poker.App
 2. **Distribution** : 5 cartes à chaque joueur.
 3. **Tour de mise** : le joueur humain (« Vous ») agit en premier, puis chaque IA à son tour.
    - Si personne n’a encore misé : **Check (c)** ou **Miser (m)** + montant.
-   - Si quelqu’un a misé : **Suivre (s)** pour égaliser la mise, ou **Se coucher (f)** pour abandonner.
+   - Si quelqu’un a misé : **Suivre (s)** pour égaliser, **Relancer** (raise) ou **Se coucher (f)**.
 4. **Showdown** : si au moins deux joueurs sont encore en jeu, on compare les mains ; le ou les gagnants se partagent le pot. Si un seul joueur reste (les autres se sont couchés), il remporte le pot sans montrer sa main.
 
 ## Fonctionnalités
 
-- **Jeu de 52 cartes** : 4 couleurs (cœur, pique, carreau, trèfle), valeurs 2 à 14 (As).
+- **Jeu de 52 cartes** : objet **Deck** (paquet) avec `shuffle(Random)` et `draw()` ; 4 couleurs, valeurs 2 à 14 (As).
 - **Joueurs** : 1 joueur humain (« Vous ») + 2 IA (Louise, Maman), chacun avec 5 cartes et une balance initiale (50 jetons).
+- **IA** : stratégie « débutant solide » (`BotStrategy` / `SimpleBotStrategy`) selon la force de la main (`HandRank.getForce()`), le coût pour suivre (`RoundState.currentBet`) et une part d’aléatoire ; actions FOLD, CHECK, CALL, BET, RAISE.
 - **Évaluation des mains** : reconnaissance de toutes les combinaisons classiques, dans l’ordre de force suivant :
 
 | Rang | Combinaison   | Description                          |
@@ -63,13 +64,19 @@ java -p out -m Poker_project/com.ivray.poker.App
 src/
 ├── module-info.java          # Module Poker_project
 └── com/ivray/poker/
-    ├── App.java              # Point d’entrée : ante, distribution, tour de mise (humain + IA), showdown
+    ├── App.java              # Point d’entrée : Deck, ante, deal5, tour de mise (humain + IA), showdown
     ├── business/
     │   ├── Card.java         # Carte (valeur, couleur)
     │   ├── Color.java        # Couleur (cœur, pique, carreau, trèfle)
+    │   ├── Deck.java         # Paquet : construction, shuffle, draw
     │   ├── HandRank.java     # Enum des combinaisons et de leur force
     │   ├── Player.java       # Joueur (pseudo, main, balance, humain ou IA)
-    │   └── Town.java        # Ville (optionnel, profil joueur)
+    │   ├── Town.java         # Ville (optionnel, profil joueur)
+    │   ├── RoundState.java   # État de manche (pot, currentBet, humanFolded, aiFolded)
+    │   ├── ActionType.java   # FOLD, CHECK, CALL, BET, RAISE
+    │   ├── Action.java       # Record (type, amount) + factory (fold, check, call, bet, raise)
+    │   ├── BotStrategy.java  # Interface de stratégie IA
+    │   └── SimpleBotStrategy.java  # IA « débutant solide » (force main + coût + hasard)
     └── util/
         └── CardComparatorOnValue.java   # Tri des cartes par valeur
 ```
@@ -97,8 +104,7 @@ Pot remporté : 14.0
 
 ## Pistes d’évolution
 
-- Introduire un objet **Deck** (paquet) dédié.
-- Relancer (raise) en plus de miser / suivre / se coucher.
+- **Phase DRAW** (poker 5 cartes « draw ») : chaque joueur peut jeter 0 à 3 cartes et repiocher ; l’IA jette les cartes inutiles (ex. garder la paire + 3 autres à améliorer).
 - Adapter au **Texas Hold’em** (2 cartes par joueur + 5 cartes communes).
 - Boucle de parties : enchaîner plusieurs mains jusqu’à ce qu’un joueur n’ait plus de jetons.
 - Interface graphique ou menu console.
