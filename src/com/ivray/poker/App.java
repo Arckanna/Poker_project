@@ -10,6 +10,7 @@ import com.ivray.poker.business.Player;
 import com.ivray.poker.business.RoundState;
 import com.ivray.poker.business.SimpleBotStrategy;
 import com.ivray.poker.util.CardComparatorOnValue;
+import com.ivray.poker.util.GameDisplay;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,6 +39,8 @@ public class App {
 	public static void main(String[] args) {
 		initCouleurs();
 		ajouterJoueurs();
+		GameDisplay.titleScreen();
+		scanner.nextLine();
 		collecterAnte();
 		melangerEtDistribuer();
 		afficherMainJoueurHumain();
@@ -59,7 +62,7 @@ public class App {
 			p.setBalance(p.getBalance() - ANTE);
 			pot += ANTE;
 		}
-		System.out.println("--- Ante --- Chaque joueur paie " + ANTE + ". Pot = " + pot);
+		GameDisplay.printAnte(ANTE, pot);
 	}
 
 	private static void melangerEtDistribuer() {
@@ -81,9 +84,7 @@ public class App {
 		if (humain == null) return;
 		List<Card> main = new ArrayList<>(humain.getHandCards());
 		Collections.sort(main, new CardComparatorOnValue());
-		System.out.println("--- Votre main --- " + humain.getPseudo() + " | " + main);
-		System.out.println("Combinaison : " + getHandRank(humain));
-		System.out.println("Pot : " + pot + " | Votre stack : " + humain.getBalance());
+		GameDisplay.printYourHand(main, getHandRank(humain).toString(), pot, humain.getBalance());
 	}
 
 	/**
@@ -97,6 +98,8 @@ public class App {
 		float miseMax = 0;
 		int dernierRelance = 0;
 		int idx = 0;
+
+		GameDisplay.printBetRoundTitle();
 
 		while (true) {
 			if (aFolded[idx]) {
@@ -116,9 +119,9 @@ public class App {
 						pot += montant;
 						miseMax = miseActuelle[idx];
 						dernierRelance = idx;
-						System.out.println(p.getPseudo() + " mise " + montant + ". Pot = " + pot);
+						GameDisplay.printAction(p.getPseudo(), "mise " + montant + ".", pot);
 					} else {
-						System.out.println(p.getPseudo() + " check.");
+						GameDisplay.printAction(p.getPseudo(), "check.", pot);
 					}
 				} else {
 					boolean call = joueurHumainCallOuFold(p, aSuivre);
@@ -127,10 +130,10 @@ public class App {
 						miseActuelle[idx] += montant;
 						pot += montant;
 						p.setBalance(p.getBalance() - montant);
-						System.out.println(p.getPseudo() + " suit (" + montant + "). Pot = " + pot);
+						GameDisplay.printAction(p.getPseudo(), "suit (" + (int) montant + ").", pot);
 					} else {
 						aFolded[idx] = true;
-						System.out.println(p.getPseudo() + " se couche.");
+						GameDisplay.printAction(p.getPseudo(), "se couche.", pot);
 					}
 				}
 			} else {
@@ -144,15 +147,15 @@ public class App {
 				switch (action.type()) {
 					case FOLD -> {
 						aFolded[idx] = true;
-						System.out.println(p.getPseudo() + " se couche.");
+						GameDisplay.printAction(p.getPseudo(), "se couche.", pot);
 					}
-					case CHECK -> System.out.println(p.getPseudo() + " check.");
+					case CHECK -> GameDisplay.printAction(p.getPseudo(), "check.", pot);
 					case CALL -> {
 						float montant = Math.min(aSuivre, p.getBalance());
 						p.setBalance(p.getBalance() - montant);
 						miseActuelle[idx] += montant;
 						pot += montant;
-						System.out.println(p.getPseudo() + " suit (" + (int) montant + "). Pot = " + pot);
+						GameDisplay.printAction(p.getPseudo(), "suit (" + (int) montant + ").", pot);
 					}
 					case BET -> {
 						int mise = Math.min(action.amount(), (int) p.getBalance());
@@ -161,7 +164,7 @@ public class App {
 						pot += mise;
 						miseMax = miseActuelle[idx];
 						dernierRelance = idx;
-						System.out.println(p.getPseudo() + " mise " + mise + ". Pot = " + pot);
+						GameDisplay.printAction(p.getPseudo(), "mise " + mise + ".", pot);
 					}
 					case RAISE -> {
 						int total = (int) aSuivre + action.amount();
@@ -171,7 +174,7 @@ public class App {
 						pot += mise;
 						miseMax = miseActuelle[idx];
 						dernierRelance = idx;
-						System.out.println(p.getPseudo() + " relance " + mise + ". Pot = " + pot);
+						GameDisplay.printAction(p.getPseudo(), "relance " + mise + ".", pot);
 					}
 				}
 			}
@@ -227,21 +230,21 @@ public class App {
 		if (encoreEnJeu.size() == 1) {
 			Player gagnant = encoreEnJeu.get(0);
 			gagnant.setBalance(gagnant.getBalance() + pot);
-			System.out.println("--- Gagnant --- " + gagnant.getPseudo() + " remporte le pot (" + pot + ") : tout le monde s'est couché.");
+			GameDisplay.printShowdownTitle();
+			GameDisplay.printWinnerByFold(gagnant.getPseudo(), pot);
 			return;
 		}
-		System.out.println("--- Showdown ---");
+		GameDisplay.printShowdownTitle();
 		for (Player p : encoreEnJeu) {
 			List<Card> main = new ArrayList<>(p.getHandCards());
 			Collections.sort(main, new CardComparatorOnValue());
-			System.out.println(p.getPseudo() + " : " + main + " → " + getHandRank(p));
+			GameDisplay.printShowdownHand(p.getPseudo(), main, getHandRank(p).toString());
 		}
 		List<Player> gagnants = getGagnants(encoreEnJeu);
 		for (Player g : gagnants) {
 			g.setBalance(g.getBalance() + pot / gagnants.size());
 		}
 		afficherGagnants(gagnants);
-		System.out.println("Pot remporté : " + pot);
 	}
 
 	private static void initCouleurs() {
@@ -319,21 +322,14 @@ public class App {
 	}
 
 	private static void afficherGagnants(List<Player> gagnants) {
-		if (gagnants.isEmpty()) {
-			return;
-		}
-		System.out.println("--- Gagnant(s) ---");
+		if (gagnants.isEmpty()) return;
+		GameDisplay.printWinnersTitle();
 		if (gagnants.size() == 1) {
-			System.out.println(gagnants.get(0).getPseudo() + " remporte la main avec " + getHandRank(gagnants.get(0)) + ".");
+			GameDisplay.printWinnerSingle(gagnants.get(0).getPseudo(), getHandRank(gagnants.get(0)).toString(), pot);
 		} else {
-			System.out.print("Égalité entre : ");
-			for (int i = 0; i < gagnants.size(); i++) {
-				if (i > 0) {
-					System.out.print(", ");
-				}
-				System.out.print(gagnants.get(i).getPseudo());
-			}
-			System.out.println();
+			List<String> noms = new ArrayList<>();
+			for (Player g : gagnants) noms.add(g.getPseudo());
+			GameDisplay.printWinnersTie(noms, pot / gagnants.size());
 		}
 	}
 
