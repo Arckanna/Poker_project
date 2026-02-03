@@ -16,4 +16,7 @@ public interface HumanInputProvider {
 
 	/** Retourne true pour suivre, false pour se coucher (quand une mise est à suivre). */
 	boolean callOrFold(float toCall);
+
+	/** Appelé en fin de main : true = continuer une nouvelle main, false = abandonner la partie. */
+	boolean continuePlaying();
 }

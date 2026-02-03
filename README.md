@@ -34,6 +34,15 @@ java -p out -m Poker_project/com.ivray.poker.ui.PokerGUI
 
 L’interface graphique affiche votre main (5 cartes avec symboles ♥♠♦♣), le pot, votre stack, la combinaison détectée, et des boutons pour **Check**, **Miser** (avec montant), **Suivre** et **Se coucher**. Un log à droite retrace les actions de la main.
 
+## Boucle de parties
+
+La partie enchaîne **plusieurs mains** jusqu’à :
+- **Un seul joueur avec des jetons** : les joueurs à 0 jetons sont éliminés et ne participent plus aux mains suivantes ; quand il ne reste qu’un joueur avec des jetons, il remporte la partie.
+- **Abandon du joueur humain** : en fin de main, le joueur peut choisir de continuer (nouvelle main) ou d’abandonner la partie.
+
+En **console** : après chaque main, les stacks sont affichés ; « Continuer (o) ou Abandonner (a) ? » permet de jouer une nouvelle main ou de quitter.  
+En **GUI** : boutons **Nouvelle main** et **Abandonner** en fin de main.
+
 ## Déroulement d’une main
 
 1. **Ante** : chaque joueur paie une mise fixe (2 jetons par défaut) ; le pot est constitué de ces antes.

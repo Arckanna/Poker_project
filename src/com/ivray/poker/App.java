@@ -16,6 +16,6 @@ public class App {
 			return;
 		}
 		GameRunner runner = new GameRunner();
-		runner.runHand(new ConsoleInput(), new ConsoleView());
+		runner.runGame(new ConsoleInput(), new ConsoleView());
 	}
 }

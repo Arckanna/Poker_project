@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -23,8 +24,8 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * Moteur de jeu : une main de poker (ante, distribution, tour de mise, showdown).
- * Utilisable en console ou en GUI via HumanInputProvider et GameView.
+ * Moteur de jeu : parties en boucle jusqu'à un seul joueur avec des jetons ou abandon.
+ * Chaque main ne fait jouer que les joueurs avec balance > 0 (les autres sont éliminés).
  */
 public class GameRunner {
 
@@ -60,31 +61,145 @@ public class GameRunner {
 		players.add(new Player("Maman"));
 	}
 
-	/** Exécute une main complète. */
+	/** Compte les joueurs encore en jeu (balance > 0). */
+	private int countActive() {
+		int n = 0;
+		for (Player p : players) {
+			if (p.getBalance() > 0) n++;
+		}
+		return n;
+	}
+
+	/** Retourne le premier joueur avec balance > 0 (gagnant de la partie), ou null. */
+	private Player getWinner() {
+		for (Player p : players) {
+			if (p.getBalance() > 0) return p;
+		}
+		return null;
+	}
+
+	/** Stacks actuels (nom → jetons) pour affichage. */
+	private Map<String, Float> getStacks() {
+		Map<String, Float> m = new LinkedHashMap<>();
+		for (Player p : players) {
+			m.put(p.getPseudo(), p.getBalance());
+		}
+		return m;
+	}
+
+	/**
+	 * Boucle de parties : plusieurs mains jusqu'à un seul joueur avec des jetons ou abandon.
+	 */
+	public void runGame(HumanInputProvider input, GameView view) {
+		view.showWelcome();
+		input.waitForStart();
+
+		while (true) {
+			int active = countActive();
+			if (active < 2) {
+				Player winner = getWinner();
+				if (winner != null) {
+					view.showGameOver(winner.getPseudo() + " remporte la partie !");
+				} else {
+					view.showGameOver("Partie terminée.");
+				}
+				return;
+			}
+
+			runOneHand(input, view);
+			view.showHandOver(getStacks());
+
+			if (countActive() < 2) {
+				Player winner = getWinner();
+				if (winner != null) {
+					view.showGameOver(winner.getPseudo() + " remporte la partie !");
+				} else {
+					view.showGameOver("Partie terminée.");
+				}
+				return;
+			}
+
+			if (!input.continuePlaying()) {
+				view.showGameOver("Vous avez abandonné la partie.");
+				return;
+			}
+		}
+	}
+
+	/** Une seule main : seuls les joueurs avec balance > 0 participent. */
+	private void runOneHand(HumanInputProvider input, GameView view) {
+		int n = players.size();
+		boolean[] inHand = new boolean[n];
+		for (int i = 0; i < n; i++) {
+			inHand[i] = players.get(i).getBalance() > 0;
+		}
+		int activeCount = 0;
+		for (boolean b : inHand) if (b) activeCount++;
+		if (activeCount < 2) {
+			return;
+		}
+
+		pot = 0;
+		for (int i = 0; i < n; i++) {
+			if (inHand[i]) {
+				Player p = players.get(i);
+				p.setBalance(p.getBalance() - ANTE);
+				pot += ANTE;
+			}
+		}
+		view.showAnte(ANTE, pot);
+
+		Deck deck = new Deck(new ArrayList<>(colors));
+		deck.shuffle(random);
+		for (int i = 0; i < n; i++) {
+			if (inHand[i]) {
+				deal5(deck, players.get(i));
+			}
+		}
+
+		Player humain = getHumanPlayer();
+		if (humain != null && inHand[players.indexOf(humain)]) {
+			List<Card> main = new ArrayList<>(humain.getHandCards());
+			Collections.sort(main, new CardComparatorOnValue());
+			view.showYourHand(main, getHandRank(humain).toString(), pot, humain.getBalance());
+		}
+
+		boolean[] aFolded = new boolean[n];
+		for (int i = 0; i < n; i++) {
+			aFolded[i] = !inHand[i];
+		}
+		tourDeMise(input, view, aFolded);
+		showdown(aFolded, view);
+	}
+
+	/** Exécute une seule main (comportement historique, pour compatibilité). */
 	public void runHand(HumanInputProvider input, GameView view) {
 		view.showWelcome();
 		input.waitForStart();
+		boolean[] aFolded = new boolean[players.size()];
+		runOneHandWithFolded(input, view, aFolded);
+	}
+
+	/** Une main sans filtre inHand (tous jouent). Utilisé par runHand. */
+	private void runOneHandWithFolded(HumanInputProvider input, GameView view, boolean[] aFolded) {
 		pot = 0;
 		for (Player p : players) {
 			p.setBalance(p.getBalance() - ANTE);
 			pot += ANTE;
 		}
 		view.showAnte(ANTE, pot);
-
 		Deck deck = new Deck(new ArrayList<>(colors));
 		deck.shuffle(random);
 		for (Player p : players) {
 			deal5(deck, p);
 		}
-
 		Player humain = getHumanPlayer();
 		if (humain != null) {
 			List<Card> main = new ArrayList<>(humain.getHandCards());
 			Collections.sort(main, new CardComparatorOnValue());
 			view.showYourHand(main, getHandRank(humain).toString(), pot, humain.getBalance());
 		}
-
-		boolean[] aFolded = tourDeMise(input, view);
+		tourDeMise(input, view, aFolded);
 		showdown(aFolded, view);
 	}
 
@@ -102,9 +217,8 @@ public class GameRunner {
 		}
 	}
 
-	private boolean[] tourDeMise(HumanInputProvider input, GameView view) {
+	private void tourDeMise(HumanInputProvider input, GameView view, boolean[] aFolded) {
 		int n = players.size();
-		boolean[] aFolded = new boolean[n];
 		float[] miseActuelle = new float[n];
 		float miseMax = 0;
 		int dernierRelance = 0;
@@ -202,8 +316,6 @@ public class GameRunner {
 			}
 			if (tousEgalises && idx == dernierRelance) break;
 		}
-
-		return aFolded;
 	}
 
 	private void showdown(boolean[] aFolded, GameView view) {

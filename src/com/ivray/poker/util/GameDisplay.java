@@ -159,6 +159,25 @@ public final class GameDisplay {
 		println("  Pot partagé : " + GOLD + (int) potEach + RESET + " jetons chacun.");
 	}
 
+	/** Fin de main : affiche les stacks (nom → jetons). */
+	public static void printHandOver(java.util.Map<String, Float> stacksByPlayer) {
+		blank(1);
+		sectionTitle(" STACKS ");
+		for (java.util.Map.Entry<String, Float> e : stacksByPlayer.entrySet()) {
+			int jetons = (int) (float) e.getValue();
+			String suf = jetons <= 0 ? " " + DIM + "(éliminé)" + RESET : "";
+			println("  " + e.getKey() + " : " + GOLD + jetons + RESET + " jetons" + suf);
+		}
+		blank(1);
+	}
+
+	/** Fin de partie. */
+	public static void printGameOver(String message) {
+		blank(1);
+		println(GREEN + BOLD + "  ═══ " + message + " ═══" + RESET);
+		blank(1);
+	}
+
 	/** Ligne vide. */
 	public static void blank(int n) {
 		for (int i = 0; i < n; i++) System.out.println();

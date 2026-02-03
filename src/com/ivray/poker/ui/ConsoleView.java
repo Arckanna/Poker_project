@@ -3,6 +3,7 @@ package com.ivray.poker.ui;
 import com.ivray.poker.business.Card;
 import com.ivray.poker.util.GameDisplay;
 import java.util.List;
+import java.util.Map;
 
 /** Affichage du jeu en console (GameDisplay). */
 public class ConsoleView implements GameView {
@@ -58,5 +59,15 @@ public class ConsoleView implements GameView {
 	public void showWinnersTie(List<String> playerNames, float potEach) {
 		GameDisplay.printWinnersTitle();
 		GameDisplay.printWinnersTie(playerNames, potEach);
+	}
+
+	@Override
+	public void showHandOver(Map<String, Float> stacksByPlayer) {
+		GameDisplay.printHandOver(stacksByPlayer);
+	}
+
+	@Override
+	public void showGameOver(String message) {
+		GameDisplay.printGameOver(message);
 	}
 }

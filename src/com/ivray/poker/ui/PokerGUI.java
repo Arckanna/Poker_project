@@ -9,6 +9,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -43,6 +44,8 @@ public class PokerGUI extends JFrame implements GameView {
 	private final JButton btnCall = new JButton("Suivre");
 	private final JButton btnFold = new JButton("Se coucher");
 	private final JButton btnStart = new JButton("Démarrer la main");
+	private final JButton btnNextHand = new JButton("Nouvelle main");
+	private final JButton btnQuit = new JButton("Abandonner");
 	private final JButton btnConfirmBet = new JButton("Confirmer la mise");
 	private final JSpinner betSpinner = new JSpinner(new SpinnerNumberModel(2, 2, 50, 1));
 
@@ -108,6 +111,8 @@ public class PokerGUI extends JFrame implements GameView {
 
 		actionPanel.setBorder(BorderFactory.createTitledBorder("Action"));
 		actionPanel.add(btnStart);
+		actionPanel.add(btnNextHand);
+		actionPanel.add(btnQuit);
 		actionPanel.add(btnCheck);
 		actionPanel.add(btnBet);
 		actionPanel.add(betSpinner);
@@ -123,6 +128,8 @@ public class PokerGUI extends JFrame implements GameView {
 		add(new JScrollPane(logArea), BorderLayout.EAST);
 
 		btnStart.addActionListener(e -> guiInput.notifyStart());
+		btnNextHand.addActionListener(e -> guiInput.notifyContinuePlaying(true));
+		btnQuit.addActionListener(e -> guiInput.notifyContinuePlaying(false));
 		btnCheck.addActionListener(e -> guiInput.notifyWantsToBet(false));
 		btnBet.addActionListener(e -> guiInput.notifyWantsToBet(true));
 		btnConfirmBet.addActionListener(e -> guiInput.notifyBetAmountConfirmed());
@@ -132,6 +139,20 @@ public class PokerGUI extends JFrame implements GameView {
 
 	private void setActionModeStart() {
 		btnStart.setVisible(true);
+		btnNextHand.setVisible(false);
+		btnQuit.setVisible(false);
+		btnCheck.setVisible(false);
+		btnBet.setVisible(false);
+		betSpinner.setVisible(false);
+		btnConfirmBet.setVisible(false);
+		btnCall.setVisible(false);
+		btnFold.setVisible(false);
+	}
+
+	private void setActionModeContinueOrQuit() {
+		btnStart.setVisible(false);
+		btnNextHand.setVisible(true);
+		btnQuit.setVisible(true);
 		btnCheck.setVisible(false);
 		btnBet.setVisible(false);
 		betSpinner.setVisible(false);
@@ -142,6 +163,8 @@ public class PokerGUI extends JFrame implements GameView {
 
 	private void setActionModeCheckOrBet() {
 		btnStart.setVisible(false);
+		btnNextHand.setVisible(false);
+		btnQuit.setVisible(false);
 		btnCheck.setVisible(true);
 		btnBet.setVisible(true);
 		betSpinner.setVisible(true);
@@ -152,6 +175,8 @@ public class PokerGUI extends JFrame implements GameView {
 
 	private void setActionModeConfirmBet(int min, int max) {
 		btnStart.setVisible(false);
+		btnNextHand.setVisible(false);
+		btnQuit.setVisible(false);
 		btnCheck.setVisible(false);
 		btnBet.setVisible(false);
 		betSpinner.setVisible(true);
@@ -164,6 +189,8 @@ public class PokerGUI extends JFrame implements GameView {
 
 	private void setActionModeCallOrFold(float toCall) {
 		btnStart.setVisible(false);
+		btnNextHand.setVisible(false);
+		btnQuit.setVisible(false);
 		btnCheck.setVisible(false);
 		btnBet.setVisible(false);
 		betSpinner.setVisible(false);
@@ -175,6 +202,8 @@ public class PokerGUI extends JFrame implements GameView {
 
 	private void setActionModeDisabled() {
 		btnStart.setVisible(false);
+		btnNextHand.setVisible(false);
+		btnQuit.setVisible(false);
 		btnCheck.setVisible(false);
 		btnBet.setVisible(false);
 		betSpinner.setVisible(false);
@@ -266,6 +295,25 @@ public class PokerGUI extends JFrame implements GameView {
 		});
 	}
 
+	@Override
+	public void showHandOver(Map<String, Float> stacksByPlayer) {
+		SwingUtilities.invokeLater(() -> {
+			log("--- Stacks ---");
+			stacksByPlayer.forEach((name, stack) -> {
+				int j = (int) (float) stack;
+				log(name + " : " + j + " jetons" + (j <= 0 ? " (éliminé)" : ""));
+			});
+		});
+	}
+
+	@Override
+	public void showGameOver(String message) {
+		SwingUtilities.invokeLater(() -> {
+			log("═══ " + message + " ═══");
+			javax.swing.JOptionPane.showMessageDialog(this, message, "Fin de partie", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+		});
+	}
+
 	private class GUIInput implements HumanInputProvider {
 		private final Object lock = new Object();
 		private volatile boolean started;
@@ -299,6 +347,15 @@ public class PokerGUI extends JFrame implements GameView {
 		void notifyCallOrFold(boolean call) {
 			synchronized (lock) {
 				callOrFoldResult.set(call);
+				lock.notifyAll();
+			}
+		}
+
+		private final AtomicReference<Boolean> continuePlayingResult = new AtomicReference<>();
+
+		void notifyContinuePlaying(boolean continuePlaying) {
+			synchronized (lock) {
+				continuePlayingResult.set(continuePlaying);
 				lock.notifyAll();
 			}
 		}
@@ -350,6 +407,19 @@ public class PokerGUI extends JFrame implements GameView {
 			SwingUtilities.invokeLater(() -> setActionModeDisabled());
 			return callOrFoldResult.get();
 		}
+
+		@Override
+		public boolean continuePlaying() {
+			SwingUtilities.invokeLater(() -> setActionModeContinueOrQuit());
+			continuePlayingResult.set(null);
+			synchronized (lock) {
+				while (continuePlayingResult.get() == null) {
+					try { lock.wait(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+				}
+			}
+			SwingUtilities.invokeLater(() -> setActionModeDisabled());
+			return continuePlayingResult.get();
+		}
 	}
 
 	public static void main(String[] args) {
@@ -359,7 +429,7 @@ public class PokerGUI extends JFrame implements GameView {
 			gui.setVisible(true);
 			Thread gameThread = new Thread(() -> {
 				GameRunner runner = new GameRunner();
-				runner.runHand(gui.getInput(), gui);
+				runner.runGame(gui.getInput(), gui);
 			});
 			gameThread.setDaemon(false);
 			gameThread.start();

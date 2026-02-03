@@ -38,4 +38,12 @@ public class ConsoleInput implements HumanInputProvider {
 		return "s".equalsIgnoreCase(line) || "suivre".equalsIgnoreCase(line)
 				|| "c".equalsIgnoreCase(line) || "call".equalsIgnoreCase(line);
 	}
+
+	@Override
+	public boolean continuePlaying() {
+		System.out.print("Continuer (o) ou Abandonner (a) ? ");
+		String line = scanner.nextLine().trim();
+		return "o".equalsIgnoreCase(line) || "oui".equalsIgnoreCase(line)
+				|| "c".equalsIgnoreCase(line) || "continuer".equalsIgnoreCase(line);
+	}
 }
